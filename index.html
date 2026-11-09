@@ -1,1 +1,1056 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Конструктор systemd-юнитов</title>
+    <style>
+        :root {
+            --bg: #f4f6f9;
+            --card: #fff;
+            --ink: #18222d;
+            --mut: #617083;
+            --line: #d9e0e8;
+            --acc: #0f7b8a;
+            --acc2: #1f3a5f;
+            --code: #0f1a26;
+            --codeink: #d7e3ef;
+            --k: #7fd1de;
+            --v: #f3c98b;
+            --c: #6f8397;
+            --h: #9fd48a;
+            --err: #c0283f;
+            --warn: #b26a00;
+            --tip: #0f7b8a;
+            box-sizing: border-box;
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+            color-scheme: light
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #0e141b;
+                --card: #161f29;
+                --ink: #e4ebf2;
+                --mut: #93a3b5;
+                --line: #263341;
+                --acc: #4fc3d3;
+                --acc2: #8db4e8;
+                --code: #091017;
+                --err: #ff7a8c;
+                --warn: #f0b35a;
+                --tip: #4fc3d3;
+                color-scheme: dark
+            }
+        }
+
+        :root[data-theme="dark"] {
+            --bg: #0e141b;
+            --card: #161f29;
+            --ink: #e4ebf2;
+            --mut: #93a3b5;
+            --line: #263341;
+            --acc: #4fc3d3;
+            --acc2: #8db4e8;
+            --code: #091017;
+            --err: #ff7a8c;
+            --warn: #f0b35a;
+            --tip: #4fc3d3;
+            color-scheme: dark
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html, body {
+            height: auto
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--ink);
+            font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif
+        }
+
+        header {
+            padding: 18px 20px 6px;
+            max-width: 1280px;
+            margin: 0 auto
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 22px;
+            color: var(--acc2)
+        }
+
+        header p {
+            margin: 4px 0 0;
+            color: var(--mut);
+            font-size: 13.5px
+        }
+
+        main {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 10px 20px 40px;
+            display: grid;
+            grid-template-columns:minmax(0, 1.05fr) minmax(0, 1fr);
+            gap: 18px;
+            align-items: start
+        }
+
+        @media (max-width: 900px) {
+            main {
+                grid-template-columns:1fr
+            }
+
+            .sticky {
+                position: static !important
+            }
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 14px
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center
+        }
+
+        .seg button, .chip, .btn {
+            font: inherit;
+            border: 1px solid var(--line);
+            background: var(--card);
+            color: var(--ink);
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer
+        }
+
+        .seg button.on {
+            background: var(--acc);
+            border-color: var(--acc);
+            color: #fff
+        }
+
+        .chip {
+            font-size: 13px;
+            padding: 4px 10px;
+            border-radius: 99px
+        }
+
+        .chip:hover, .btn:hover {
+            border-color: var(--acc)
+        }
+
+        .btn.p {
+            background: var(--acc2);
+            color: #fff;
+            border-color: var(--acc2)
+        }
+
+        label.l {
+            display: block;
+            font-size: 12.5px;
+            color: var(--mut);
+            margin: 0 0 3px
+        }
+
+        label.l b {
+            font-family: ui-monospace, Consolas, monospace;
+            color: var(--acc2);
+            font-weight: 600
+        }
+
+        input[type=text], select, textarea {
+            width: 100%;
+            font: 13.5px ui-monospace, Consolas, monospace;
+            padding: 7px 9px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--ink)
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 56px
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: 2px solid var(--acc);
+            outline-offset: -1px
+        }
+
+        details {
+            border-top: 1px solid var(--line);
+            padding: 10px 0 2px
+        }
+
+        details:first-of-type {
+            border-top: 0
+        }
+
+        summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--acc2);
+            padding-bottom: 8px
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns:1fr 1fr;
+            gap: 10px 12px
+        }
+
+        @media (max-width: 560px) {
+            .grid {
+                grid-template-columns:1fr
+            }
+        }
+
+        .full {
+            grid-column: 1/-1
+        }
+
+        .chk {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            font: 13px ui-monospace, Consolas, monospace;
+            padding: 4px 0
+        }
+
+        .chk input {
+            margin-top: 3px
+        }
+
+        .hint {
+            font: 12px system-ui;
+            color: var(--mut);
+            display: block
+        }
+
+        .sticky {
+            position: sticky;
+            top: 12px
+        }
+
+        pre {
+            margin: 0;
+            background: var(--code);
+            color: var(--codeink);
+            border-radius: 10px;
+            padding: 14px;
+            font: 13px/1.55 ui-monospace, Consolas, monospace;
+            overflow-x: auto;
+            white-space: pre;
+            max-height: 62vh;
+            overflow-y: auto
+        }
+
+        .hk {
+            color: var(--h);
+            font-weight: 700
+        }
+
+        .kk {
+            color: var(--k)
+        }
+
+        .vv {
+            color: var(--v)
+        }
+
+        .cc {
+            color: var(--c);
+            font-style: italic
+        }
+
+        .lint {
+            margin: 8px 0 0;
+            padding: 0;
+            list-style: none;
+            font-size: 13px
+        }
+
+        .lint li {
+            padding: 5px 0 5px 10px;
+            border-left: 3px solid var(--tip)
+        }
+
+        .lint .err {
+            border-color: var(--err);
+            color: var(--err)
+        }
+
+        .lint .warn {
+            border-color: var(--warn);
+            color: var(--warn)
+        }
+
+        .lint .tip {
+            color: var(--ink)
+        }
+
+        .cmd {
+            font: 12.5px ui-monospace, Consolas, monospace;
+            white-space: pre-wrap;
+            background: var(--bg);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px;
+            margin: 8px 0 0
+        }
+
+        .note {
+            margin-top: 5px;
+            padding: 6px 9px;
+            border-left: 3px solid var(--acc);
+            background: var(--bg);
+            border-radius: 0 6px 6px 0;
+            font: 12.5px/1.4 system-ui, sans-serif;
+            color: var(--ink)
+        }
+
+        .note code {
+            font: 12px ui-monospace, Consolas, monospace;
+            color: var(--acc2);
+            font-weight: 600
+        }
+
+        .note.off {
+            border-color: var(--line);
+            color: var(--mut)
+        }
+
+        h3 {
+            margin: 0 0 8px;
+            font-size: 14px;
+            color: var(--acc2)
+        }
+    </style>
+</head>
+<body>
+<header><h1>Конструктор systemd-юнитов</h1>
+    <p>Выберите тип, заполните поля — готовый файл, проверки и команды установки появятся справа. Всё считается в
+        браузере.</p></header>
+<main>
+    <section>
+        <div class="card">
+            <div class="row seg" id="types"></div>
+            <div class="row" style="margin-top:10px">
+                <div style="flex:1;min-width:160px"><label class="l">Имя юнита (без расширения)</label><input
+                        type="text" id="name" value="myapp"></div>
+                <label class="chk" style="margin-top:16px"><input type="checkbox" id="user"> пользовательский
+                    (--user)</label></div>
+            <div class="row" style="margin-top:10px"><span class="hint">Шаблоны:</span><span class="row"
+                                                                                             id="presets"></span></div>
+        </div>
+        <div class="card" id="form"></div>
+    </section>
+    <section class="sticky">
+        <div class="card">
+            <div class="row" style="justify-content:space-between;margin-bottom:8px"><h3 id="fname"
+                                                                                         style="margin:0"></h3>
+                <span class="row"><button class="btn" id="cp" data-l="Копировать">Копировать</button><button class="btn"
+                                                                                                             id="rst"
+                                                                                                             title="Очистить форму">Сбросить</button></span>
+            </div>
+            <label class="chk" id="pairWrap" style="display:none"><input type="checkbox" id="pair" checked> добавить
+                заготовку связанной службы</label>
+            <pre id="out"></pre>
+            <ul class="lint" id="lint"></ul>
+        </div>
+        <div class="card">
+            <div class="row" style="justify-content:space-between"><h3 style="margin:0">Установка и запуск</h3>
+                <button class="btn" id="cp2" data-l="Копировать">Копировать</button>
+            </div>
+            <div class="cmd" id="cmds"></div>
+        </div>
+    </section>
+</main>
+<script>
+  const $ = s => document.querySelector(s),
+    esc = s => s.replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'}[c]));
+  const T = (k, p, h) => [k, 't', p || '', h || ''], A = (k, p, h) => [k, 'a', p || '', h || ''],
+    S = (k, o, h) => [k, 's', o, h || ''], B = (k, h) => [k, 'b', '', h || ''];
+  const SEC = {
+    Unit: [T('Description', 'Краткое описание службы', 'Название в systemctl status'), T('Documentation', 'https://… или man:имя(8)'), T('After', 'network-online.target', 'Порядок: запуск после'), T('Wants', 'network-online.target', 'Мягкая зависимость'), T('Requires', 'postgresql.service', 'Жёсткая зависимость'), T('OnFailure', 'notify-failure@%n.service', 'Юнит на случай сбоя'), T('ConditionPathExists', '/etc/myapp/config.yml', 'Не запускать, если пути нет')],
+    Service: [S('Type', ['', 'simple', 'exec', 'forking', 'oneshot', 'notify', 'dbus', 'idle'], 'Как systemd определяет готовность'), T('ExecStart', '/usr/bin/myapp --port 8080', 'Абсолютный путь обязателен'), A('ExecStartPre', '/usr/bin/test -f /etc/myapp.conf', 'По одной команде в строке'), T('ExecReload', '/bin/kill -HUP $MAINPID'), T('ExecStop'), T('User', 'myapp'), T('Group', 'myapp'), B('DynamicUser', 'Временный пользователь на время работы'), B('RemainAfterExit', 'Для oneshot: оставаться active'), T('WorkingDirectory', '/opt/myapp'), A('Environment', 'NODE_ENV=production', 'KEY=VALUE, по одной в строке'), T('EnvironmentFile', '-/etc/default/myapp', '«-» — не ошибка, если файла нет'), S('Restart', ['', 'no', 'on-failure', 'always', 'on-abnormal', 'on-success', 'on-watchdog', 'on-abort']), T('RestartSec', '5s'), T('TimeoutStopSec', '30s'), T('StateDirectory', 'myapp', '→ /var/lib/myapp'), T('RuntimeDirectory', 'myapp', '→ /run/myapp'), T('LimitNOFILE', '65535'), S('StandardOutput', ['', 'journal', 'null', 'inherit', 'journal+console']), T('SyslogIdentifier', 'myapp'), S('KillMode', ['', 'control-group', 'mixed', 'process', 'none']), S('OOMPolicy', ['', 'continue', 'stop', 'kill']), T('UMask', '0027'), T('Nice', '10'), T('PIDFile', '/run/myapp/myapp.pid', 'Для Type=forking'), T('WatchdogSec', '30s', 'Для Type=notify')],
+    Security: [B('NoNewPrivileges', 'Запрет повышения привилегий'), B('PrivateTmp', 'Собственный /tmp'), B('PrivateDevices', 'Минимальный /dev'), S('ProtectSystem', ['', 'yes', 'full', 'strict']), S('ProtectHome', ['', 'yes', 'read-only', 'tmpfs']), S('ProtectProc', ['', 'default', 'noaccess', 'invisible', 'ptraceable']), S('DevicePolicy', ['', 'auto', 'closed', 'strict']), B('ProtectKernelTunables'), B('ProtectKernelModules'), B('ProtectKernelLogs'), B('ProtectControlGroups'), B('ProtectClock'), B('ProtectHostname'), B('RestrictSUIDSGID'), B('RestrictRealtime'), B('RestrictNamespaces'), B('LockPersonality'), B('MemoryDenyWriteExecute', 'Не для JIT: Node.js, Java'), B('PrivateNetwork', 'Только loopback'), T('RestrictAddressFamilies', 'AF_UNIX AF_INET AF_INET6'), T('SystemCallFilter', '@system-service'), T('CapabilityBoundingSet', 'CAP_NET_BIND_SERVICE', 'Пусто = без capabilities'), T('AmbientCapabilities', 'CAP_NET_BIND_SERVICE'), T('ReadWritePaths', '/var/lib/myapp /var/log/myapp'), T('IPAddressDeny', 'any'), T('IPAddressAllow', '127.0.0.1 10.0.0.0/8')],
+    Resources: [T('CPUQuota', '150%', '100% = одно ядро'), T('CPUWeight', '100', '1–10000'), T('MemoryHigh', '900M', 'Мягкий лимит'), T('MemoryMax', '1G', 'Жёсткий лимит (OOM)'), T('MemorySwapMax', '0'), T('TasksMax', '512'), T('IOWeight', '100', '1–10000'), T('Slice', 'workers.slice')],
+    Timer: [T('OnCalendar', '*-*-* 02:30:00'), T('OnBootSec', '5min', 'После загрузки'), T('OnUnitActiveSec', '1h', 'После прошлого запуска'), T('RandomizedDelaySec', '15min'), T('AccuracySec', '1min'), B('Persistent', 'Догнать пропущенный запуск'), B('WakeSystem')],
+    Socket: [T('ListenStream', '127.0.0.1:8080'), T('ListenDatagram', '0.0.0.0:5353'), T('SocketMode', '0660'), T('SocketUser', 'www-data'), T('SocketGroup', 'www-data'), S('Accept', ['', 'no', 'yes'], 'yes — экземпляр на соединение (нужен name@.service)'), T('Backlog', '4096'), B('ReusePort')],
+    Path: [T('PathExists', '/var/run/trigger'), T('PathChanged', '/etc/myapp/config.yml', 'Запуск при изменении файла'), T('DirectoryNotEmpty', '/var/spool/inbox'), B('MakeDirectory'), T('Unit', 'myapp.service', 'Если имя отличается')],
+    Install: [S('WantedBy', ['', 'multi-user.target', 'graphical.target', 'timers.target', 'sockets.target', 'default.target'], 'Куда добавить при enable'), T('Alias', 'web.service'), T('Also', 'myapp.socket')]
+  };
+  const SHOW = {
+    service: ['Unit', 'Service', 'Security', 'Resources', 'Install'],
+    timer: ['Unit', 'Timer', 'Install'],
+    socket: ['Unit', 'Socket', 'Install'],
+    path: ['Unit', 'Path', 'Install']
+  };
+  const SECTAG = {Security: 'Service', Resources: 'Service'}; // выводятся в секцию [Service]
+  const TITLE = {
+    Unit: 'Unit — описание и зависимости',
+    Service: 'Service — запуск',
+    Security: 'Песочница и безопасность',
+    Resources: 'Ресурсы (cgroups)',
+    Timer: 'Timer — расписание',
+    Socket: 'Socket — прослушивание',
+    Path: 'Path — события ФС',
+    Install: 'Install — автозапуск'
+  };
+  const HARD = {
+    NoNewPrivileges: 1,
+    PrivateTmp: 1,
+    PrivateDevices: 1,
+    ProtectSystem: 'strict',
+    ProtectHome: 'yes',
+    ProtectKernelTunables: 1,
+    ProtectKernelModules: 1,
+    ProtectKernelLogs: 1,
+    ProtectControlGroups: 1,
+    ProtectClock: 1,
+    ProtectHostname: 1,
+    RestrictSUIDSGID: 1,
+    RestrictRealtime: 1,
+    RestrictNamespaces: 1,
+    LockPersonality: 1,
+    RestrictAddressFamilies: 'AF_UNIX AF_INET AF_INET6',
+    SystemCallFilter: '@system-service',
+    CapabilityBoundingSet: ''
+  };
+  const PRE = {
+    'Веб-приложение': {
+      type: 'service',
+      name: 'myapp',
+      v: {
+        Description: 'Веб-приложение MyApp',
+        After: 'network-online.target',
+        Wants: 'network-online.target',
+        Type: 'exec',
+        ExecStart: '/opt/myapp/venv/bin/gunicorn app:app --bind 127.0.0.1:8000',
+        ExecReload: '/bin/kill -HUP $MAINPID',
+        User: 'myapp',
+        Group: 'myapp',
+        WorkingDirectory: '/opt/myapp',
+        EnvironmentFile: '-/etc/default/myapp',
+        Restart: 'on-failure',
+        RestartSec: '5s',
+        TimeoutStopSec: '30s',
+        StateDirectory: 'myapp',
+        LimitNOFILE: '65535', ...HARD,
+        WantedBy: 'multi-user.target'
+      }
+    },
+    'Node.js': {
+      type: 'service',
+      name: 'node-api',
+      v: {
+        Description: 'Node.js API',
+        After: 'network-online.target',
+        Type: 'simple',
+        ExecStart: '/usr/bin/node /opt/api/server.js',
+        User: 'nodeapp',
+        WorkingDirectory: '/opt/api',
+        Environment: 'NODE_ENV=production\nPORT=3000',
+        Restart: 'always',
+        RestartSec: '3s', ...HARD,
+        MemoryDenyWriteExecute: 0,
+        ReadWritePaths: '/opt/api/data',
+        MemoryMax: '1G',
+        WantedBy: 'multi-user.target'
+      }
+    },
+    'Oneshot-скрипт': {
+      type: 'service',
+      name: 'cleanup',
+      v: {
+        Description: 'Очистка временных файлов',
+        Type: 'oneshot',
+        ExecStart: '/usr/local/bin/cleanup.sh',
+        User: 'root',
+        _raw_Service: 'Nice=10',
+        NoNewPrivileges: 1,
+        PrivateTmp: 1
+      }
+    },
+    'Ежедневный таймер': {
+      type: 'timer',
+      name: 'backup',
+      v: {
+        Description: 'Ежедневная резервная копия',
+        OnCalendar: '*-*-* 02:30:00',
+        RandomizedDelaySec: '15min',
+        Persistent: 1,
+        WantedBy: 'timers.target'
+      }
+    },
+    'Сокет': {
+      type: 'socket',
+      name: 'myapp',
+      v: {Description: 'Сокет myapp', ListenStream: '127.0.0.1:8080', SocketMode: '0660', WantedBy: 'sockets.target'}
+    },
+    'Наблюдатель за каталогом': {
+      type: 'path',
+      name: 'inbox',
+      v: {
+        Description: 'Обработка входящих файлов',
+        DirectoryNotEmpty: '/var/spool/inbox',
+        MakeDirectory: 1,
+        WantedBy: 'multi-user.target'
+      }
+    }
+  };
+  const st = {type: 'service', name: 'myapp', user: false, pair: true, v: {}};
+  const NAMES = {
+    Unit: 'Unit',
+    Service: 'Service',
+    Security: 'Service',
+    Resources: 'Service',
+    Timer: 'Timer',
+    Socket: 'Socket',
+    Path: 'Path',
+    Install: 'Install'
+  };
+  /* Выпадающие списки допустимых значений для текстовых полей (можно выбрать «другое значение…») */
+  const OPT = {
+    After: ['network.target', 'network-online.target', 'multi-user.target', 'local-fs.target', 'remote-fs.target', 'postgresql.service', 'docker.service'],
+    Wants: ['network-online.target', 'network.target', 'postgresql.service'],
+    Requires: ['postgresql.service', 'docker.service', 'network-online.target', 'local-fs.target'],
+    User: ['root', 'nobody', 'www-data', 'nginx'],
+    Group: ['root', 'nogroup', 'www-data', 'nginx'],
+    RestartSec: ['1s', '5s', '10s', '30s', '1min'],
+    TimeoutStopSec: ['10s', '30s', '90s', '5min', 'infinity'],
+    LimitNOFILE: ['1024', '65535', '262144', 'infinity'],
+    WatchdogSec: ['10s', '30s', '1min'],
+    UMask: ['0022', '0027', '0077'],
+    Nice: ['-5', '0', '10', '19'],
+    RestrictAddressFamilies: ['AF_UNIX', 'AF_UNIX AF_INET AF_INET6', 'AF_UNIX AF_INET AF_INET6 AF_NETLINK'],
+    SystemCallFilter: ['@system-service', '@system-service ~@privileged', '@system-service ~@privileged @resources', '@network-io'],
+    CapabilityBoundingSet: ['CAP_NET_BIND_SERVICE', 'CAP_NET_ADMIN', 'CAP_CHOWN CAP_SETUID CAP_SETGID', '~CAP_SYS_ADMIN'],
+    AmbientCapabilities: ['CAP_NET_BIND_SERVICE', 'CAP_NET_RAW', 'CAP_NET_ADMIN'],
+    IPAddressDeny: ['any', 'localhost', 'link-local'],
+    IPAddressAllow: ['localhost', '127.0.0.1', '10.0.0.0/8', '192.168.0.0/16'],
+    CPUQuota: ['50%', '100%', '200%', '400%'],
+    CPUWeight: ['10', '50', '100', '500', '1000'],
+    MemoryHigh: ['256M', '512M', '1G', '2G', '75%'],
+    MemoryMax: ['256M', '512M', '1G', '2G', '4G', '80%'],
+    MemorySwapMax: ['0', '512M', 'infinity'],
+    TasksMax: ['128', '512', '4096', 'infinity'],
+    IOWeight: ['10', '50', '100', '500'],
+    Slice: ['system.slice', 'user.slice', 'machine.slice'],
+    OnCalendar: ['minutely', 'hourly', 'daily', 'weekly', 'monthly', '*-*-* 02:30:00', 'Mon..Fri 09:00', '*:0/15', '*-*-01 04:00'],
+    OnBootSec: ['1min', '5min', '15min', '1h'],
+    OnUnitActiveSec: ['5min', '15min', '1h', '6h', '1d'],
+    RandomizedDelaySec: ['30s', '5min', '15min', '1h'],
+    AccuracySec: ['1s', '1min', '5min', '1h'],
+    ListenStream: ['80', '443', '8080', '127.0.0.1:8080', '[::]:443', '/run/myapp.sock'],
+    ListenDatagram: ['53', '0.0.0.0:5353'],
+    SocketMode: ['0600', '0660', '0666'],
+    SocketUser: ['root', 'www-data'],
+    SocketGroup: ['www-data', 'nogroup'],
+    Backlog: ['128', '4096']
+  };
+  /* Пояснения к конкретным значениям */
+  const VAL = {
+    Type: {
+      simple: 'Служба считается запущенной сразу после fork(). Процесс не должен уходить в фон; ошибка exec обнаружится не сразу.',
+      exec: 'Как simple, но запуск засчитывается после успешного execve(): ошибки пути и прав видны сразу. Хороший выбор для новых юнитов.',
+      forking: 'Процесс сам делает fork и завершает родителя (классический демон). Желателен PIDFile=.',
+      oneshot: 'Разовая задача: зависимые юниты ждут её завершения. Часто сочетают с RemainAfterExit=yes.',
+      notify: 'Служба сама сообщает о готовности через sd_notify(READY=1).',
+      dbus: 'Готовность — когда процесс занял имя на шине D-Bus (нужен BusName=).',
+      idle: 'Как simple, но запуск откладывается, пока не завершатся остальные задачи (чтобы не мешать выводу на консоль).'
+    },
+    Restart: {
+      no: 'Не перезапускать (по умолчанию).',
+      'on-failure': 'Перезапуск при ненулевом коде выхода, сигнале или тайм-ауте; при чистом завершении — нет. Самый частый выбор.',
+      always: 'Перезапускать всегда, даже после чистого завершения (кроме ручного systemctl stop).',
+      'on-abnormal': 'Только при сигнале, тайм-ауте или срабатывании watchdog; код выхода не учитывается.',
+      'on-success': 'Только после успешного завершения (код 0).',
+      'on-watchdog': 'Только если сработал watchdog (служба зависла).',
+      'on-abort': 'Только при необработанном сигнале, например SIGSEGV.'
+    },
+    ProtectSystem: {
+      yes: '/usr и /boot доступны только для чтения.',
+      full: 'Как yes, плюс /etc только для чтения.',
+      strict: 'Вся файловая система только для чтения, кроме /dev, /proc, /sys. Запись — через ReadWritePaths= или StateDirectory=.'
+    },
+    ProtectHome: {
+      yes: '/home, /root и /run/user полностью недоступны службе.',
+      'read-only': 'Домашние каталоги видны, но только для чтения.',
+      tmpfs: 'Вместо домашних каталогов — пустые tmpfs; служба не видит ваших файлов.'
+    },
+    ProtectProc: {
+      default: 'Обычный /proc: видны все процессы.',
+      noaccess: 'Доступ к /proc/PID чужих процессов закрыт.',
+      invisible: 'Чужие процессы вообще не видны в /proc.',
+      ptraceable: 'Видны только процессы, которые служба вправе трассировать.'
+    },
+    DevicePolicy: {
+      auto: 'Доступ к устройствам по умолчанию; ограничения только через DeviceAllow=.',
+      closed: 'Разрешены только псевдоустройства (null, zero, random…) и перечисленное в DeviceAllow=.',
+      strict: 'Разрешено только то, что явно указано в DeviceAllow=.'
+    },
+    KillMode: {
+      'control-group': 'При остановке сигнал получают все процессы cgroup службы (по умолчанию).',
+      mixed: 'SIGTERM главному процессу, затем SIGKILL всем остальным.',
+      process: 'Сигнал только главному процессу; дочерние остаются работать.',
+      none: 'Процессы не трогаются вовсе (не рекомендуется).'
+    },
+    OOMPolicy: {
+      continue: 'При OOM-kill одного процесса служба продолжает работу.',
+      stop: 'При OOM-kill служба корректно останавливается.',
+      kill: 'При OOM-kill убиваются все процессы службы.'
+    },
+    StandardOutput: {
+      journal: 'Вывод пишется в журнал journald (по умолчанию).',
+      null: 'Вывод отбрасывается.',
+      inherit: 'Наследуется от родителя (у системных служб — настройка менеджера).',
+      'journal+console': 'Вывод идёт и в журнал, и на консоль.'
+    },
+    Accept: {
+      no: 'Все соединения принимает одна запущенная служба (по умолчанию).',
+      yes: 'На каждое соединение запускается отдельный экземпляр name@.service (стиль inetd).'
+    },
+    WantedBy: {
+      'multi-user.target': 'Автозапуск при обычной многопользовательской загрузке (серверы).',
+      'graphical.target': 'Автозапуск при загрузке в графический режим.',
+      'timers.target': 'Для .timer: активация таймера при загрузке.',
+      'sockets.target': 'Для .socket: открытие сокета при загрузке.',
+      'default.target': 'Для пользовательских (--user) юнитов: запуск при старте пользовательского менеджера.'
+    },
+    After: {
+      'network.target': 'Сетевая подсистема запущена, но адреса могут быть ещё не настроены.',
+      'network-online.target': 'Сеть реально настроена и доступна (добавьте и Wants=network-online.target).',
+      'multi-user.target': 'Запуск после основной загрузки системы.',
+      'local-fs.target': 'Запуск после монтирования локальных файловых систем.',
+      'remote-fs.target': 'Запуск после монтирования сетевых файловых систем.'
+    },
+    Wants: {'network-online.target': 'Просит systemd дождаться настроенной сети; работает вместе с After=network-online.target.'},
+    User: {
+      root: 'Полные права; для сетевых демонов нежелательно.',
+      nobody: 'Непривилегированная учётная запись без собственных файлов.',
+      'www-data': 'Стандартная учётная запись веб-серверов в Debian/Ubuntu.',
+      nginx: 'Учётная запись nginx в RHEL-подобных системах.'
+    },
+    RestrictAddressFamilies: {
+      'AF_UNIX': 'Только локальные сокеты, без сети.',
+      'AF_UNIX AF_INET AF_INET6': 'Локальные сокеты, IPv4 и IPv6 — типичный набор для сетевых служб.',
+      'AF_UNIX AF_INET AF_INET6 AF_NETLINK': 'Плюс netlink для чтения сетевых настроек.'
+    },
+    SystemCallFilter: {
+      '@system-service': 'Белый список системных вызовов, типичных для обычных служб.',
+      '@system-service ~@privileged': 'То же, но без привилегированных вызовов (смена времени, монтирование и т. п.).',
+      '@system-service ~@privileged @resources': 'Дополнительно без вызовов управления ресурсами (nice, rlimit).',
+      '@network-io': 'Только сетевой ввод-вывод — для очень узких служб.'
+    },
+    CapabilityBoundingSet: {
+      CAP_NET_BIND_SERVICE: 'Единственное право — слушать порты ниже 1024.',
+      CAP_NET_ADMIN: 'Администрирование сети (интерфейсы, маршруты, firewall).',
+      'CAP_CHOWN CAP_SETUID CAP_SETGID': 'Смена владельцев файлов и учётных записей процессов.',
+      '~CAP_SYS_ADMIN': 'Убрать самую широкую capability CAP_SYS_ADMIN, остальные оставить.'
+    },
+    AmbientCapabilities: {
+      CAP_NET_BIND_SERVICE: 'Непривилегированный пользователь сможет слушать порты ниже 1024.',
+      CAP_NET_RAW: 'Raw-сокеты (ping, перехват пакетов).',
+      CAP_NET_ADMIN: 'Управление сетью без root.'
+    },
+    IPAddressDeny: {
+      any: 'Запретить любой IP-трафик; нужные адреса открываются через IPAddressAllow=.',
+      localhost: 'Запретить обмен с локальным хостом.',
+      'link-local': 'Запретить link-local адреса.'
+    },
+    OnCalendar: {
+      minutely: 'Каждую минуту.',
+      hourly: 'Каждый час в :00.',
+      daily: 'Каждый день в 00:00.',
+      weekly: 'По понедельникам в 00:00.',
+      monthly: 'Первого числа каждого месяца в 00:00.',
+      '*-*-* 02:30:00': 'Ежедневно в 02:30.',
+      'Mon..Fri 09:00': 'По будням в 09:00.',
+      '*:0/15': 'Каждые 15 минут.',
+      '*-*-01 04:00': 'Первого числа каждого месяца в 04:00.'
+    },
+    SocketMode: {
+      '0600': 'Доступ только владельцу сокета.',
+      '0660': 'Владелец и группа.',
+      '0666': 'Все пользователи (по умолчанию).'
+    },
+    UMask: {
+      '0022': 'Новые файлы читаются всеми (по умолчанию).',
+      '0027': 'Группа читает, остальным доступа нет.',
+      '0077': 'Доступ только владельцу.'
+    },
+    LimitNOFILE: {
+      '1024': 'Классический небольшой лимит открытых файлов.',
+      '65535': 'Типичное значение для серверов с множеством соединений.',
+      '262144': 'Для очень нагруженных служб (БД, прокси).',
+      infinity: 'Без ограничения (ограничено только ядром).'
+    },
+    MemorySwapMax: {'0': 'Запретить службе использовать swap.', infinity: 'Swap без ограничений.'},
+    CPUQuota: {
+      '50%': 'Не более половины одного ядра.',
+      '100%': 'Не более одного ядра.',
+      '200%': 'Не более двух ядер.',
+      '400%': 'Не более четырёх ядер.'
+    },
+    TimeoutStopSec: {infinity: 'Ждать остановки неограниченно долго, SIGKILL не посылается.'}
+  };
+  /* Общее назначение параметра */
+  const GEN = {
+    Description: 'Название юнита в systemctl status и журнале.',
+    Documentation: 'Ссылки на документацию, видны в systemctl status.',
+    After: 'Запускать этот юнит только после перечисленных; задаёт порядок, но не включает их.',
+    Wants: 'Мягкая зависимость: перечисленные юниты запускаются вместе с этим, их сбой не мешает.',
+    Requires: 'Жёсткая зависимость: при сбое или остановке зависимости этот юнит тоже останавливается.',
+    OnFailure: 'Юнит, который запустится, если этот перейдёт в состояние failed.',
+    ConditionPathExists: 'Запускать, только если путь существует (с «!» — если не существует); иначе юнит тихо пропускается.',
+    Type: 'Определяет, как systemd понимает, что служба запущена.',
+    ExecStart: 'Команда запуска. Путь абсолютный; операторы оболочки (| && >) не работают без /bin/sh -c.',
+    ExecStartPre: 'Команды перед основной; при ошибке служба не запускается.',
+    ExecReload: 'Команда перечитывания конфигурации (systemctl reload).',
+    ExecStop: 'Команда корректной остановки; без неё посылается KillSignal (SIGTERM).',
+    User: 'От имени какого пользователя работает процесс.',
+    Group: 'Основная группа процесса.',
+    DynamicUser: 'Временный пользователь создаётся при старте и удаляется после; включает ряд защит автоматически.',
+    RemainAfterExit: 'Юнит остаётся active после завершения процесса — удобно для oneshot с «состоянием».',
+    WorkingDirectory: 'Рабочий каталог процесса.',
+    Environment: 'Переменные окружения в виде KEY=VALUE.',
+    EnvironmentFile: 'Файл с переменными; префикс «-» — не ошибка, если файла нет.',
+    Restart: 'Когда systemd автоматически перезапускает службу.',
+    RestartSec: 'Пауза перед перезапуском (по умолчанию 100 мс).',
+    TimeoutStopSec: 'Сколько ждать остановки после SIGTERM, затем посылается SIGKILL (по умолчанию 90 с).',
+    StateDirectory: 'Создаёт /var/lib/<имя> с нужным владельцем и разрешает запись даже при ProtectSystem=strict.',
+    RuntimeDirectory: 'Создаёт /run/<имя>; удаляется при остановке службы.',
+    LimitNOFILE: 'Максимум открытых файлов у процесса.',
+    StandardOutput: 'Куда направляется stdout службы.',
+    SyslogIdentifier: 'Метка записей службы в журнале.',
+    PIDFile: 'PID-файл демона для Type=forking.',
+    WatchdogSec: 'Служба должна периодически слать WATCHDOG=1, иначе считается зависшей и убивается.',
+    KillMode: 'Какие процессы получают сигнал при остановке.',
+    OOMPolicy: 'Реакция на убийство процесса службы из-за нехватки памяти.',
+    UMask: 'Маска прав для новых файлов службы.',
+    Nice: 'Приоритет планировщика: от -20 (высокий) до 19 (низкий).',
+    NoNewPrivileges: 'Процесс и потомки не могут повысить привилегии (setuid, file capabilities). Включайте почти всегда.',
+    PrivateTmp: 'Служба получает собственные /tmp и /var/tmp, удаляемые при остановке.',
+    PrivateDevices: 'Минимальный /dev (null, zero, random…); физические устройства недоступны.',
+    ProtectSystem: 'Делает части файловой системы доступными только для чтения.',
+    ProtectHome: 'Скрывает или защищает от записи домашние каталоги.',
+    ProtectProc: 'Что служба видит в /proc о чужих процессах.',
+    DevicePolicy: 'Политика доступа к устройствам в /dev.',
+    ProtectKernelTunables: '/proc/sys, /sys и подобные только для чтения: служба не меняет параметры ядра.',
+    ProtectKernelModules: 'Запрет загрузки и выгрузки модулей ядра.',
+    ProtectKernelLogs: 'Закрывает доступ к буферу сообщений ядра (dmesg).',
+    ProtectControlGroups: 'Каталог cgroup только для чтения.',
+    ProtectClock: 'Запрет изменения системных часов.',
+    ProtectHostname: 'Запрет смены имени хоста.',
+    RestrictSUIDSGID: 'Запрет создавать файлы с битами SUID/SGID.',
+    RestrictRealtime: 'Запрет real-time планирования процессов.',
+    RestrictNamespaces: 'Запрет создавать новые пространства имён (контейнеры внутри службы).',
+    LockPersonality: 'Запрет смены «персональности» исполнения (защита от обхода через 32-бит режим).',
+    MemoryDenyWriteExecute: 'Запрет страниц памяти, одновременно записываемых и исполняемых. Ломает JIT: Node.js, Java, .NET.',
+    PrivateNetwork: 'Отдельное сетевое пространство — виден только loopback.',
+    RestrictAddressFamilies: 'Какие семейства сокетов разрешены службе.',
+    SystemCallFilter: 'Фильтр системных вызовов (seccomp); «~» исключает группу.',
+    CapabilityBoundingSet: 'Верхний предел capabilities. Пусто — ни одной; «~» — исключить перечисленные.',
+    AmbientCapabilities: 'Capabilities, передаваемые процессу без root.',
+    ReadWritePaths: 'Каталоги, остающиеся записываемыми при ProtectSystem=strict.',
+    IPAddressDeny: 'Запретить трафик с этих адресов/сетей (any — все).',
+    IPAddressAllow: 'Исключения из IPAddressDeny=.',
+    CPUQuota: 'Жёсткий потолок CPU; 100% = одно ядро.',
+    CPUWeight: 'Относительный вес CPU при конкуренции (1–10000, по умолчанию 100).',
+    MemoryHigh: '«Мягкий» лимит памяти: при превышении служба притормаживается и вытесняется в swap.',
+    MemoryMax: 'Жёсткий лимит памяти: при превышении срабатывает OOM-killer внутри службы.',
+    MemorySwapMax: 'Лимит использования swap службой.',
+    TasksMax: 'Максимум процессов и потоков службы.',
+    IOWeight: 'Относительный вес ввода-вывода (1–10000, по умолчанию 100).',
+    Slice: 'В какой slice (группу cgroup) помещается служба.',
+    OnCalendar: 'Запуск по календарному расписанию. Проверка: systemd-analyze calendar "выражение".',
+    OnBootSec: 'Запуск через указанное время после загрузки системы.',
+    OnUnitActiveSec: 'Повторный запуск через указанное время после предыдущей активации службы.',
+    RandomizedDelaySec: 'Случайная задержка запуска, чтобы разнести нагрузку.',
+    AccuracySec: 'Допустимое отклонение времени запуска (по умолчанию 1 минута).',
+    Persistent: 'Если запуск был пропущен (машина была выключена), выполнить его сразу при следующей загрузке. Только с OnCalendar=.',
+    WakeSystem: 'Выводить компьютер из сна для запуска.',
+    ListenStream: 'TCP или потоковый UNIX-сокет: порт, адрес:порт или путь /run/x.sock.',
+    ListenDatagram: 'UDP или датаграммный UNIX-сокет.',
+    SocketMode: 'Права на файл UNIX-сокета.',
+    SocketUser: 'Владелец файла UNIX-сокета.',
+    SocketGroup: 'Группа файла UNIX-сокета.',
+    Accept: 'Как соединения распределяются между экземплярами службы.',
+    Backlog: 'Размер очереди ожидающих соединений.',
+    ReusePort: 'Включает SO_REUSEPORT: несколько процессов могут слушать один порт.',
+    PathExists: 'Запуск, когда путь существует.',
+    PathChanged: 'Запуск при изменении файла (после закрытия на запись).',
+    DirectoryNotEmpty: 'Запуск, когда каталог перестаёт быть пустым.',
+    MakeDirectory: 'Создать отслеживаемый каталог, если его нет.',
+    Unit: 'Какой юнит активировать, если его имя отличается от имени этого.',
+    WantedBy: 'В какую цель добавляется юнит при systemctl enable (определяет автозапуск).',
+    Alias: 'Дополнительное имя юнита (создаётся символическая ссылка).',
+    Also: 'Юниты, включаемые и выключаемые вместе с этим (например, .socket и .service).'
+  };
+  const BOOLS = new Set(Object.values(SEC).flat().filter(x => x[1] === 'b').map(x => x[0]));
+
+  function noteEl(k) {
+    const v = st.v[k], g = GEN[k] || '', x = VAL[k] && VAL[k][v], hasV = !!(VAL[k] || OPT[k]);
+    if (BOOLS.has(k)) return v ? `<div class="note" id="n_${k}"><code>${k}=yes</code> — ${esc(g)}</div>` : `<div class="note off" id="n_${k}">Если включить: ${esc(g)}</div>`;
+    if (v) return `<div class="note" id="n_${k}"><code>${k}=${esc(String(v).split('\n')[0])}</code> — ${esc(x || g || 'своё значение')}</div>`;
+    return `<div class="note off" id="n_${k}">${esc(g)}${hasV ? ' Выберите значение — здесь появится пояснение.' : ''}</div>`
+  }
+
+  function updNote(k) {
+    const el = document.getElementById('n_' + k);
+    if (el) el.outerHTML = noteEl(k)
+  }
+
+  function fieldHTML([k, kind, p, h]) {
+    const v = st.v[k], id = 'f_' + k, n = noteEl(k);
+    if (kind === 'b') return `<div class="full"><label class="chk"><input type="checkbox" data-k="${k}" ${v ? 'checked' : ''}><span>${k}=yes</span></label>${n}</div>`;
+    const lab = `<label class="l" for="${id}"><b>${k}=</b></label>`, o = kind === 's' ? p : OPT[k];
+    if (o) {
+      const vs = v || '', cust = kind !== 's' && vs !== '' && !o.includes(vs);
+      return `<div>${lab}<select id="${id}" data-sel="${k}"><option value="">— не задано —</option>${o.filter(x => x !== '').map(x => `<option value="${esc(x)}" ${x === vs ? 'selected' : ''}>${esc(x)}</option>`).join('')}${kind !== 's' ? `<option value="__c" ${cust ? 'selected' : ''}>другое значение…</option>` : ''}</select>${kind !== 's' ? `<input type="text" data-k="${k}" placeholder="${esc(p)}" value="${cust ? esc(vs) : ''}" style="margin-top:6px;${cust ? '' : 'display:none'}">` : ''}${n}</div>`
+    }
+    if (kind === 'a') return `<div class="full">${lab}<textarea id="${id}" data-k="${k}" placeholder="${esc(p)}" rows="2">${esc(v || '')}</textarea>${n}</div>`;
+    return `<div>${lab}<input type="text" id="${id}" data-k="${k}" placeholder="${esc(p)}" value="${esc(v || '')}">${n}</div>`
+  }
+
+  function buildForm() {
+    const secs = SHOW[st.type];
+    $('#form').innerHTML = secs.map((s, i) => {
+      const f = SEC[s];
+      const hard = s === 'Security' ? `<div class="row" style="margin-bottom:8px"><button class="btn" data-act="hard">Применить базовое усиление</button><span class="hint">набор из документа, раздел 6</span></div>` : '';
+      const flds = f.filter(x => x[1] !== 'b'), bools = f.filter(x => x[1] === 'b');
+      return `<details ${i < 2 || s === 'Install' ? 'open' : ''}><summary>${TITLE[s]}</summary>${hard}<div class="grid">${flds.map(x => fieldHTML(x)).join('')}</div>${bools.length ? `<div class="grid" style="margin-top:6px">${bools.map(x => fieldHTML(x)).join('')}</div>` : ''}<div style="margin-top:10px"><label class="l"><b>свои строки</b> (Key=Value) в секцию [${NAMES[s]}]</label><textarea data-k="_raw_${s}" rows="2" placeholder="Nice=10">${esc(st.v['_raw_' + s] || '')}</textarea></div></details>`
+    }).join('');
+    document.querySelectorAll('#types button').forEach(b => b.classList.toggle('on', b.dataset.t === st.type));
+    render()
+  }
+
+  function lines() {
+    const secs = SHOW[st.type], out = {Unit: [], Service: [], Timer: [], Socket: [], Path: [], Install: []};
+    secs.forEach(s => {
+      const tgt = NAMES[s];
+      SEC[s].forEach(([k, kind]) => {
+        const v = st.v[k];
+        if (kind === 'b') {
+          if (v) out[tgt].push(k + '=yes')
+        } else if (kind === 'a') {
+          (v || '').split('\n').map(x => x.trim()).filter(Boolean).forEach(x => out[tgt].push(k + '=' + x))
+        } else if (v !== undefined && v !== '' || k === 'CapabilityBoundingSet' && v === '' && st.v._cap) {
+          out[tgt].push(k + '=' + (v || ''))
+        }
+      });
+      (st.v['_raw_' + s] || '').split('\n').map(x => x.trim()).filter(Boolean).forEach(x => out[tgt].push(x))
+    });
+    return out
+  }
+
+  function build() {
+    const o = lines(), main = st.type[0].toUpperCase() + st.type.slice(1);
+    let t = [];
+    ['Unit', main, 'Install'].forEach(sn => {
+      if (o[sn].length) t.push('[' + sn + ']\n' + o[sn].join('\n'))
+    });
+    let txt = t.join('\n\n');
+    if (st.type !== 'service' && st.pair) {
+      const n = st.name || 'myapp', desc = st.v.Description || n;
+      txt += `\n\n# ——— ${n}.service (запускается этим юнитом) ———\n[Unit]\nDescription=${desc}\n\n[Service]\n${st.type === 'timer' ? 'Type=oneshot\n' : ''}ExecStart=/usr/local/bin/${n}.sh`
+    }
+    return txt
+  }
+
+  function hl(txt) {
+    return txt.split('\n').map(l => {
+      const e = esc(l);
+      if (/^\[.+\]$/.test(l)) return `<span class="hk">${e}</span>`;
+      if (/^#/.test(l)) return `<span class="cc">${e}</span>`;
+      const i = l.indexOf('=');
+      return i > 0 ? `<span class="kk">${esc(l.slice(0, i))}</span>=<span class="vv">${esc(l.slice(i + 1))}</span>` : e
+    }).join('\n')
+  }
+
+  function lint() {
+    const v = st.v, r = [], add = (lv, m) => r.push([lv, m]);
+    if (st.type === 'service') {
+      if (!v.ExecStart) add('err', 'Не задан ExecStart= — служба не запустится.');
+      else if (!/^[-@:+!]*\//.test(v.ExecStart.trim())) add('err', 'ExecStart= должен начинаться с абсолютного пути (допустимы префиксы - @ : + !).');
+      else if (/[|&;><]/.test(v.ExecStart) && !/sh -c|bash -c/.test(v.ExecStart)) add('warn', 'В ExecStart= нет оболочки: операторы | && > ; не сработают. Оберните в /bin/sh -c \'…\'.');
+      if (/%/.test(v.ExecStart || '') && /[^%]%[^%nNiIpPtSCLEuUhHmbvwjJfsl]/.test(v.ExecStart || '')) add('warn', 'Одиночный «%» воспринимается как спецификатор — удвойте: %%.');
+      if (v.Type === 'forking' && !v.PIDFile) add('warn', 'Type=forking без PIDFile= — главный PID определяется угадыванием.');
+      if (v.Type === 'oneshot' && v.Restart === 'always') add('err', 'Restart=always несовместим с Type=oneshot.');
+      if (v.Type === 'notify' && !v.WatchdogSec) add('tip', 'Type=notify: приложение должно отправлять READY=1 через sd_notify, иначе запуск зависнет до тайм-аута.');
+      if ((v.Restart === 'always' || v.Restart === 'on-failure') && !v.RestartSec) add('tip', 'Задайте RestartSec= (например 5s), чтобы сбойная служба не перезапускалась каждые 100 мс.');
+      if (!v.Restart && v.Type !== 'oneshot') add('tip', 'Restart= не задан — после падения служба останется остановленной.');
+      if (!v.User && !v.DynamicUser) add('tip', 'User= не задан: служба работает от root. Используйте отдельного пользователя или DynamicUser=yes.');
+      if (v.User && v.DynamicUser) add('warn', 'Одновременно User= и DynamicUser=yes: имя будет создано динамически — проверьте, нужно ли оно.');
+      if (v.ProtectSystem === 'strict' && !v.ReadWritePaths && !v.StateDirectory && !v.RuntimeDirectory) add('warn', 'ProtectSystem=strict делает ФС только для чтения: добавьте StateDirectory= или ReadWritePaths=, если приложение что-то пишет.');
+      if (v.MemoryDenyWriteExecute && /node|java|dotnet|chrome|php/.test(v.ExecStart || '')) add('warn', 'MemoryDenyWriteExecute= ломает JIT (Node.js, Java, .NET) — отключите для таких приложений.');
+      if (v.ProtectHome && /\/home\//.test((v.ExecStart || '') + (v.WorkingDirectory || ''))) add('warn', 'Путь в /home при ProtectHome= станет недоступен.');
+      if (v.PrivateNetwork && (v.ListenStream)) add('warn', 'PrivateNetwork=yes отрезает сеть — служба не сможет слушать порты.');
+      if (v.MemoryMax && v.MemoryHigh && parseInt(v.MemoryHigh) > parseInt(v.MemoryMax)) add('warn', 'MemoryHigh= больше MemoryMax= — «мягкий» лимит бессмыслен.');
+      if (v.Wants && /network-online/.test(v.After || '') === false && /network-online/.test(v.Wants)) add('tip', 'Wants=network-online.target работает только вместе с After=network-online.target.');
+    }
+    if (st.type === 'timer') {
+      if (!v.OnCalendar && !v.OnBootSec && !v.OnUnitActiveSec) add('err', 'Не задан ни один триггер: OnCalendar=, OnBootSec= или OnUnitActiveSec=.');
+      if (v.Persistent && !v.OnCalendar) add('warn', 'Persistent= действует только вместе с OnCalendar=.');
+      if (v.OnCalendar && /\d{1,2}:\d{1,2}(?!:)/.test(v.OnCalendar) === false && !/(minutely|hourly|daily|weekly|monthly|yearly|quarterly|semiannually|\*)/.test(v.OnCalendar)) add('tip', 'Проверьте выражение: systemd-analyze calendar "' + v.OnCalendar.split('\n')[0] + '"');
+      add('tip', 'Таймер запускает одноимённую службу (' + (st.name || 'имя') + '.service) — она должна существовать.');
+    }
+    if (st.type === 'socket') {
+      if (!v.ListenStream && !v.ListenDatagram) add('err', 'Задайте ListenStream= или ListenDatagram=.');
+      if (v.Accept === 'yes') add('tip', 'Accept=yes: нужен шаблон ' + (st.name || 'имя') + '@.service.');
+      add('tip', 'Служба ' + (st.name || 'имя') + '.service получит сокет как файловый дескриптор (LISTEN_FDS, начиная с fd 3).');
+    }
+    if (st.type === 'path' && !v.PathExists && !v.PathChanged && !v.DirectoryNotEmpty) add('err', 'Задайте PathExists=, PathChanged= или DirectoryNotEmpty=.');
+    if (!v.WantedBy && !st.user) add('tip', 'WantedBy= не задан: systemctl enable не создаст ссылку автозапуска.');
+    if (st.user && v.WantedBy && v.WantedBy !== 'default.target') add('tip', 'Для пользовательских юнитов обычно WantedBy=default.target.');
+    if (!v.Description) add('tip', 'Добавьте Description= — оно показывается в статусе и журнале.');
+    return r
+  }
+
+  function render() {
+    const n = (st.name || 'unit').replace(/[^\w@.\-:\\]/g, '-'), ext = '.' + st.type, fn = n + ext, txt = build();
+    $('#fname').textContent = fn;
+    $('#out').innerHTML = hl(txt) || '<span class="cc"># заполните поля слева</span>';
+    $('#pairWrap').style.display = st.type === 'service' ? 'none' : 'flex';
+    const L = lint();
+    $('#lint').innerHTML = L.length ? L.map(([c, m]) => `<li class="${c}">${esc(m)}</li>`).join('') : '<li class="tip">Замечаний нет ✓</li>';
+    const u = st.user, sc = u ? 'systemctl --user' : 'sudo systemctl',
+      dir = u ? '~/.config/systemd/user' : '/etc/systemd/system', p = dir + '/' + fn;
+    let c = `${u ? 'mkdir -p ' + dir + '\n' : ''}${u ? 'nano' : 'sudo nano'} ${p}\nsystemd-analyze ${u ? '--user ' : ''}verify ${p}\n${sc} daemon-reload\n${sc} enable --now ${fn}\n${sc} status ${fn}\n${u ? 'journalctl --user' : 'journalctl'} -u ${fn} -f`;
+    if (st.type === 'timer') c += `\n${sc} list-timers ${fn}`;
+    if (st.type !== 'service' && st.pair) c = `${u ? 'nano' : 'sudo nano'} ${dir}/${n}.service\n` + c;
+    if (u) c += '\nloginctl enable-linger $USER   # запуск без входа в систему';
+    $('#cmds').textContent = c;
+    try {
+      localStorage.setItem('unitbuilder', JSON.stringify(st))
+    } catch (e) {
+    }
+  }
+
+  function copy(text, btn) {
+    const ok = () => {
+      btn.textContent = 'Скопировано ✓';
+      setTimeout(() => btn.textContent = btn.dataset.l, 1400)
+    };
+    const fb = () => {
+      const a = document.createElement('textarea');
+      a.value = text;
+      a.style.position = 'fixed';
+      a.style.opacity = '0';
+      document.body.appendChild(a);
+      a.select();
+      try {
+        document.execCommand('copy');
+        ok()
+      } catch (e) {
+      }
+      a.remove()
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, fb); else fb()
+  }
+
+  function applyPreset(p) {
+    st.type = p.type;
+    st.name = p.name;
+    st.v = Object.assign({}, p.v);
+    if (p.v.CapabilityBoundingSet === '') st.v._cap = 1;
+    $('#name').value = p.name;
+    buildForm()
+  }
+
+  $('#types').innerHTML = Object.keys(SHOW).map(t => `<button data-t="${t}">.${t}</button>`).join('');
+  $('#presets').innerHTML = Object.keys(PRE).map(k => `<button class="chip" data-p="${k}">${k}</button>`).join('');
+  $('#types').onclick = e => {
+    const t = e.target.dataset.t;
+    if (t) {
+      st.type = t;
+      buildForm()
+    }
+  };
+  $('#presets').onclick = e => {
+    const p = e.target.dataset.p;
+    if (p) applyPreset(PRE[p])
+  };
+  $('#name').oninput = e => {
+    st.name = e.target.value.trim();
+    render()
+  };
+  $('#user').onchange = e => {
+    st.user = e.target.checked;
+    render()
+  };
+  $('#pair').onchange = e => {
+    st.pair = e.target.checked;
+    render()
+  };
+  $('#form').addEventListener('input', e => {
+    const k = e.target.dataset.k;
+    if (!k) return;
+    st.v[k] = e.target.type === 'checkbox' ? (e.target.checked ? 1 : 0) : e.target.value;
+    updNote(k);
+    render()
+  });
+  $('#form').addEventListener('change', e => {
+    const k = e.target.dataset.sel;
+    if (!k) return;
+    const inp = e.target.parentNode.querySelector('input[data-k="' + k + '"]'), val = e.target.value;
+    if (val === '__c') {
+      inp.style.display = '';
+      inp.focus();
+      st.v[k] = inp.value
+    } else {
+      if (inp) {
+        inp.style.display = 'none';
+        inp.value = ''
+      }
+      st.v[k] = val
+    }
+    updNote(k);
+    render()
+  });
+  $('#form').addEventListener('click', e => {
+    if (e.target.dataset.act === 'hard') {
+      Object.assign(st.v, HARD, {_cap: 1});
+      buildForm()
+    }
+  });
+  $('#cp').onclick = e => copy($('#out').textContent, e.target);
+  $('#cp2').onclick = e => copy($('#cmds').textContent, e.target);
+  $('#rst').onclick = () => {
+    st.v = {};
+    buildForm()
+  };
+  try {
+    const s = JSON.parse(localStorage.getItem('unitbuilder') || 'null');
+    if (s && s.v && SHOW[s.type]) {
+      Object.assign(st, s);
+      $('#name').value = st.name;
+      $('#user').checked = st.user;
+      $('#pair').checked = st.pair
+    } else applyPreset(PRE['Веб-приложение'])
+  } catch (e) {
+    applyPreset(PRE['Веб-приложение'])
+  }
+  buildForm();
+</script>
+</body>
+</html>
 
